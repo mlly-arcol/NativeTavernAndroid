@@ -1,0 +1,8 @@
+<Project>
+  <!-- Machine-local toolchain paths: .NET Android provisions the Android SDK and
+       OpenJDK 17 here on first provisioning (dotnet build -t:InstallAndroidDependencies). -->
+  <PropertyGroup>
+    <AndroidSdkDirectory>C:\Android\Sdk</AndroidSdkDirectory>
+    <JavaSdkDirectory>C:\Android\Jdk17</JavaSdkDirectory>
+  </PropertyGroup>
+</Project>

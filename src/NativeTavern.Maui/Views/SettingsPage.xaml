@@ -1,0 +1,51 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NativeTavern.Maui.ViewModels"
+             x:Class="NativeTavern.Maui.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="设置">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12" MaximumWidthRequest="640">
+
+            <Label Text="模型连接" FontAttributes="Bold" FontSize="18" />
+            <Label Text="连接 OpenAI 兼容、云端或本地模型服务。"
+                   FontSize="13" TextColor="{StaticResource MutedText}" />
+
+            <Label Text="Provider" FontSize="13" />
+            <Picker ItemsSource="{Binding ProviderProfiles}"
+                    SelectedItem="{Binding SelectedProvider}"
+                    ItemDisplayBinding="{Binding DisplayName}" />
+
+            <Label Text="Base URL" FontSize="13" />
+            <Entry Text="{Binding BaseUrl}" Keyboard="Url" />
+
+            <Label Text="API Key" FontSize="13" />
+            <Entry Text="{Binding ApiKey}" IsPassword="True" />
+
+            <Label Text="模型名称" FontSize="13" />
+            <Entry Text="{Binding Model}" />
+
+            <Label Text="生成参数" FontAttributes="Bold" FontSize="18" Margin="0,8,0,0" />
+
+            <Label Text="{Binding Value, StringFormat='Temperature：{0:F2}', Source={x:Reference TemperatureSlider}}" FontSize="13" />
+            <Slider x:Name="TemperatureSlider" Minimum="0" Maximum="2" Value="{Binding Temperature}" />
+
+            <Label Text="{Binding Value, StringFormat='Top P：{0:F2}', Source={x:Reference TopPSlider}}" FontSize="13" />
+            <Slider x:Name="TopPSlider" Minimum="0.1" Maximum="1" Value="{Binding TopP}" />
+
+            <Label Text="最大生成长度" FontSize="13" />
+            <Entry Keyboard="Numeric" Text="{Binding MaxTokens}" />
+
+            <HorizontalStackLayout Spacing="10" Margin="0,8,0,0">
+                <Button Text="测试连接" Command="{Binding TestConnectionCommand}" />
+                <Button Text="保存" Command="{Binding SaveCommand}" />
+            </HorizontalStackLayout>
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{StaticResource AccentColor}"
+                   IsVisible="{Binding StatusMessage, Converter={StaticResource IsNotNull}}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

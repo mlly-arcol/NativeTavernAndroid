@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <Color x:Key="PageBackground">#12141A</Color>
+    <Color x:Key="CardBackground">#1C2029</Color>
+    <Color x:Key="PrimaryText">#E7E9EE</Color>
+    <Color x:Key="MutedText">#8B90A0</Color>
+    <Color x:Key="AccentColor">#7C8CFF</Color>
+    <Color x:Key="EntryBackground">#232834</Color>
+</ResourceDictionary>

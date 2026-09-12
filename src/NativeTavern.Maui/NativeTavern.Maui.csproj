@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NativeTavern.Maui</RootNamespace>
+    <AssemblyName>NativeTavern.Android</AssemblyName>
+
+    <ApplicationTitle>NativeTavern</ApplicationTitle>
+    <ApplicationId>com.mllyarcol.nativetavern</ApplicationId>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <Version>0.1.0</Version>
+
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <!-- Prototype builds a plain debuggable APK; release signing comes later. -->
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NativeTavern.Core\NativeTavern.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg"
+              ForegroundFile="Resources\AppIcon\appiconfg.svg"
+              Color="#1F2430" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg"
+                      Color="#1F2430"
+                      BaseSize="128,128" />
+  </ItemGroup>
+
+</Project>

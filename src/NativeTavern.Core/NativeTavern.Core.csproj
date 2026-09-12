@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NativeTavern</RootNamespace>
+    <AssemblyName>NativeTavern.Core</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Single source of truth: all platform-neutral code is *linked* from the desktop
+      repository (E:\NativeTavern). Fix a bug there and both the Windows WPF app and
+      this Android app pick it up on the next build. Do not copy files here.
+    -->
+    <DesktopRoot>$(MSBuildThisFileDirectory)..\..\..\NativeTavern</DesktopRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
+    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(DesktopRoot)\Models\**\*.cs" LinkBase="Shared\Models" />
+    <Compile Include="$(DesktopRoot)\Providers\**\*.cs" LinkBase="Shared\Providers" />
+    <Compile Include="$(DesktopRoot)\Data\Repositories\**\*.cs" LinkBase="Shared\Data\Repositories" />
+    <Compile Include="$(DesktopRoot)\Data\DatabaseConnectionFactory.cs" LinkBase="Shared\Data\DatabaseConnectionFactory.cs" />
+    <Compile Include="$(DesktopRoot)\Importers\**\*.cs" LinkBase="Shared\Importers" />
+    <Compile Include="$(DesktopRoot)\Helpers\AppPaths.cs" LinkBase="Shared\Helpers\AppPaths.cs" />
+    <Compile Include="$(DesktopRoot)\Helpers\AppVersion.cs" LinkBase="Shared\Helpers\AppVersion.cs" />
+    <Compile Include="$(DesktopRoot)\Helpers\JsonDefaults.cs" LinkBase="Shared\Helpers\JsonDefaults.cs" />
+    <Compile Include="$(DesktopRoot)\Helpers\LanguageCodes.cs" LinkBase="Shared\Helpers\LanguageCodes.cs" />
+    <Compile Include="$(DesktopRoot)\Helpers\ManagedFile.cs" LinkBase="Shared\Helpers\ManagedFile.cs" />
+    <Compile Include="$(DesktopRoot)\Helpers\ProgressiveParagraphBuffer.cs" LinkBase="Shared\Helpers\ProgressiveParagraphBuffer.cs" />
+    <Compile Include="$(DesktopRoot)\Logging\FileLoggerProvider.cs" LinkBase="Shared\Logging\FileLoggerProvider.cs" />
+    <Compile Include="$(DesktopRoot)\Security\ISecretProtector.cs" LinkBase="Shared\Security\ISecretProtector.cs" />
+    <Compile Include="$(DesktopRoot)\Services\AttachmentService.cs" LinkBase="Shared\Services\AttachmentService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\BackupService.cs" LinkBase="Shared\Services\BackupService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\CharacterService.cs" LinkBase="Shared\Services\CharacterService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\CharacterStatusService.cs" LinkBase="Shared\Services\CharacterStatusService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\ChatService.cs" LinkBase="Shared\Services\ChatService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\ConversationSummaryService.cs" LinkBase="Shared\Services\ConversationSummaryService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\DatabaseInitializer.cs" LinkBase="Shared\Services\DatabaseInitializer.cs" />
+    <Compile Include="$(DesktopRoot)\Services\DataExportService.cs" LinkBase="Shared\Services\DataExportService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\ICharacterService.cs" LinkBase="Shared\Services\ICharacterService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\KnowledgeService.cs" LinkBase="Shared\Services\KnowledgeService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\LocalModelService.cs" LinkBase="Shared\Services\LocalModelService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\PluginService.cs" LinkBase="Shared\Services\PluginService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\PromptService.cs" LinkBase="Shared\Services\PromptService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\ProviderDiscoveryService.cs" LinkBase="Shared\Services\ProviderDiscoveryService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\ReplySuggestionService.cs" LinkBase="Shared\Services\ReplySuggestionService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\SettingsService.cs" LinkBase="Shared\Services\SettingsService.cs" />
+    <Compile Include="$(DesktopRoot)\Services\TokenEstimator.cs" LinkBase="Shared\Services\TokenEstimator.cs" />
+    <EmbeddedResource Include="$(DesktopRoot)\Data\Sql\schema.sql"
+                      LogicalName="NativeTavern.Data.Sql.schema.sql" />
+  </ItemGroup>
+
+</Project>
