@@ -1,0 +1,79 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:NativeTavern.Maui.ViewModels"
+             x:Class="NativeTavern.Maui.Views.CharactersPage"
+             x:DataType="vm:CharactersViewModel"
+             Title="角色">
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Padding="10,8"
+          RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <Label Text="角色库" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="导入角色卡"
+                    Command="{Binding ImportCommand}" />
+        </Grid>
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Characters}">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="24" Spacing="8">
+                    <Label Text="还没有角色"
+                           FontAttributes="Bold" FontSize="16"
+                           HorizontalOptions="Center" />
+                    <Label Text="点击“导入角色卡”添加 PNG 或 JSON 角色卡，与桌面版共用 SillyTavern 卡片格式。"
+                           FontSize="13" TextColor="{StaticResource MutedText}" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:CharacterItemViewModel">
+                    <Border StrokeShape="RoundRectangle 12"
+                            BackgroundColor="{StaticResource CardBackground}"
+                            Padding="12,8"
+                            Margin="0,2">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                            <Image WidthRequest="44"
+                                   HeightRequest="44"
+                                   Aspect="AspectFill"
+                                   Source="{Binding AvatarSource}"
+                                   IsVisible="{Binding HasAvatar}" />
+                            <Border Grid.Column="0"
+                                    StrokeShape="RoundRectangle 8"
+                                    BackgroundColor="{StaticResource EntryBackground}"
+                                    WidthRequest="44" HeightRequest="44"
+                                    IsVisible="{Binding ShowPlaceholder}">
+                                <Label Text="🎭" HorizontalOptions="Center" VerticalOptions="Center" FontSize="22" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Tags}"
+                                       FontSize="12"
+                                       LineBreakMode="TailTruncation"
+                                       TextColor="{StaticResource MutedText}"
+                                       IsVisible="{Binding HasTags}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="2" Text="对话"
+                                    VerticalOptions="Center"
+                                    Clicked="OnStartChatClicked" />
+                            <Button Grid.Column="3" Text="🗑"
+                                    VerticalOptions="Center"
+                                    BackgroundColor="{StaticResource EntryBackground}"
+                                    Clicked="OnDeleteClicked" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="4">
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               HorizontalOptions="Start" />
+            <Label Text="{Binding StatusMessage}"
+                   FontSize="13"
+                   TextColor="{StaticResource AccentColor}"
+                   IsVisible="{Binding StatusMessage, Converter={StaticResource IsNotNull}}" />
+        </VerticalStackLayout>
+
+    </Grid>
+</ContentPage>

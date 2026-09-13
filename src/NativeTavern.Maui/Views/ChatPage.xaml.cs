@@ -45,6 +45,9 @@ public partial class ChatPage : ContentPage
     private async void OnOpenSettingsClicked(object? sender, EventArgs e) =>
         await Navigation.PushAsync(services.GetRequiredService<SettingsPage>());
 
+    private async void OnOpenCharactersClicked(object? sender, EventArgs e) =>
+        await Navigation.PushAsync(services.GetRequiredService<CharactersPage>());
+
     private void OnSuggestionClicked(object? sender, EventArgs e)
     {
         if (sender is Button { BindingContext: string suggestion })
