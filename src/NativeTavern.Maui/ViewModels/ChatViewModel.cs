@@ -38,6 +38,15 @@ public partial class ChatViewModel(
     public ChatSession? CurrentSession => session;
     public bool IsIdle => !IsGenerating;
 
+    // Entry point used by CharactersPage after "start chat" creates a new session.
+    public async Task OpenSessionAsync(ChatSession target)
+    {
+        var stored = await chatService.GetSessionAsync(target.Id) ?? target;
+        await ReloadSessionsAsync(stored.Id);
+        await LoadSessionAsync(stored);
+        ErrorMessage = null;
+    }
+
     public async Task InitializeAsync()
     {
         await RefreshConfigurationAsync();

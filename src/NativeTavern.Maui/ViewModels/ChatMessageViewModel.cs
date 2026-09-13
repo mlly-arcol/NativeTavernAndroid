@@ -14,6 +14,7 @@ public partial class ChatMessageViewModel : ObservableObject
 
     public ChatMessage Model { get; }
     public bool IsUser => Model.Role == ChatRole.User;
+    public bool IsAssistant => !IsUser;
 
     public string RoleLabel { get; }
     public bool HasStatusSummary => StatusSummary is not null;

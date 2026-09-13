@@ -59,8 +59,10 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<ChatViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
+        builder.Services.AddSingleton<CharactersViewModel>();
         builder.Services.AddSingleton<ChatPage>();
         builder.Services.AddSingleton<SettingsPage>();
+        builder.Services.AddSingleton<CharactersPage>();
         builder.Services.AddSingleton<App>();
 
         builder.Logging.AddDebug();
