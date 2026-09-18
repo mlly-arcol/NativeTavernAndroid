@@ -2,6 +2,9 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Microsoft.Maui.Storage;
+using NativeTavern.Data.Repositories;
 using NativeTavern.Models;
 using NativeTavern.Services;
 
@@ -12,11 +15,23 @@ namespace NativeTavern.Maui.ViewModels;
 // MAUI Android commands run on the UI thread, so awaited callbacks stay marshalled.
 public partial class ChatViewModel(
     ChatService chatService,
+    ChatAttachmentRepository attachmentRepository,
     ReplySuggestionService replySuggestionService,
     CharacterStatusService characterStatusService,
     SettingsService settingsService,
     ILogger<ChatViewModel> logger) : ObservableObject
 {
+    private const long MaxImageSize = 10 * 1024 * 1024;
+
+    private static readonly PickOptions ImagePickOptions = new()
+    {
+        PickerTitle = "选择图片（PNG / JPG / WEBP / GIF）",
+        FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+        {
+            [DevicePlatform.Android] = ["image/*"]
+        })
+    };
+
     private ChatSession? session;
     private CancellationTokenSource? generationCts;
     private TaskCompletionSource? generationCompletion;
@@ -25,6 +40,7 @@ public partial class ChatViewModel(
     public ObservableCollection<ChatSession> Sessions { get; } = [];
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = [];
     public ObservableCollection<string> ReplySuggestions { get; } = [];
+    public ObservableCollection<string> PendingImages { get; } = [];
 
     [ObservableProperty] private ChatSession? selectedSession;
     [ObservableProperty] private string inputText = string.Empty;
@@ -34,9 +50,11 @@ public partial class ChatViewModel(
     [ObservableProperty] private string? errorMessage;
 
     public event Action? MessagesChanged;
+    public event Action<ChatMessageViewModel>? MessageActionRequested;
 
     public ChatSession? CurrentSession => session;
     public bool IsIdle => !IsGenerating;
+    public bool HasPendingImages => PendingImages.Count > 0;
 
     // Entry point used by CharactersPage after "start chat" creates a new session.
     public async Task OpenSessionAsync(ChatSession target)
@@ -66,20 +84,25 @@ public partial class ChatViewModel(
         ErrorMessage = null;
         ClearSuggestions();
         var input = InputText;
+        var images = PendingImages.ToArray();
         InputText = string.Empty;
+        PendingImages.Clear();
+        PendingImagesChanged();
         using var cancellation = new CancellationTokenSource();
         BeginGeneration(cancellation);
         ChatMessageViewModel? assistant = null;
         try
         {
             await chatService.SendAsync(
-                session, input, [],
+                session, input, images,
                 async (user, assistantMessage) =>
                 {
                     var userVm = new ChatMessageViewModel(user, "你");
+                    foreach (var attachment in await chatService.GetAttachmentsAsync(user.Id))
+                        userVm.Attachments.Add(attachment);
                     assistant = new ChatMessageViewModel(assistantMessage, "角色") { IsStreaming = true };
-                    Messages.Add(userVm);
-                    Messages.Add(assistant);
+                    AddMessage(userVm);
+                    AddMessage(assistant);
                     MessagesChanged?.Invoke();
                 },
                 (_, chunk) =>
@@ -91,7 +114,10 @@ public partial class ChatViewModel(
                 cancellation.Token);
 
             if (assistant is not null && assistant.Content.Length > 0)
+            {
+                await RefreshMessageMetaAsync(assistant);
                 await RefreshSuggestionsAsync();
+            }
             await RefreshConfigurationStatusAsync(assistant);
             await ReloadSessionsAsync(session!.Id);
         }
@@ -109,25 +135,124 @@ public partial class ChatViewModel(
         }
     }
 
-    private async Task RefreshConfigurationStatusAsync(ChatMessageViewModel? assistant)
+    [RelayCommand]
+    private async Task RegenerateAsync(ChatMessageViewModel? target)
     {
-        if (assistant is null) return;
+        if (target is null || session is null || IsGenerating || target.IsUser) return;
+        ErrorMessage = null;
+        ClearSuggestions();
+        using var cancellation = new CancellationTokenSource();
+        BeginGeneration(cancellation);
+        target.IsStreaming = true;
         try
         {
-            var status = await characterStatusService.UpdateAsync(session!, assistant.Model.SpeakerCharacterId
-                                                                      ?? session!.CharacterId ?? 0, assistant.Model.Id);
-            assistant.StatusSummary = status is null ? null : FormatStatus(status);
+            (_, var count) = await chatService.GenerateAlternativeAsync(
+                session, target.Model,
+                content =>
+                {
+                    target.Content = content;
+                    MessagesChanged?.Invoke();
+                    return Task.CompletedTask;
+                },
+                cancellation.Token);
+            target.SwipeCount = count;
+            target.SwipeIndex = target.Model.CurrentSwipeIndex;
+            if (target.Content.Length > 0) await RefreshSuggestionsAsync();
+            await ReloadSessionsAsync(session.Id);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Character status update failed.");
+            logger.LogError(ex, "Regenerating the reply failed.");
+            ErrorMessage = "重新生成失败，请检查设置页中的模型配置。";
+        }
+        finally
+        {
+            target.IsStreaming = false;
+            // Cancellation may have restored the original swipe content on the model.
+            target.Content = target.Model.Content;
+            EndGeneration(cancellation);
+            MessagesChanged?.Invoke();
         }
     }
 
-    private static string FormatStatus(CharacterStatusSnapshot status)
+    [RelayCommand]
+    private async Task SwipePrevAsync(ChatMessageViewModel? target)
     {
-        var attributes = string.Join(" · ", status.Attributes.Take(4).Select(x => $"{x.Name} {x.Value}"));
-        return string.IsNullOrWhiteSpace(attributes) ? status.Summary : $"{status.Summary}  |  {attributes}";
+        if (target is null || IsGenerating || target.SwipeIndex <= 0) return;
+        await chatService.SelectSwipeAsync(target.Model, target.SwipeIndex - 1);
+        target.SwipeIndex = target.Model.CurrentSwipeIndex;
+        target.Content = target.Model.Content;
+    }
+
+    [RelayCommand]
+    private async Task SwipeNextAsync(ChatMessageViewModel? target)
+    {
+        if (target is null || IsGenerating || target.SwipeIndex >= target.SwipeCount - 1) return;
+        await chatService.SelectSwipeAsync(target.Model, target.SwipeIndex + 1);
+        target.SwipeIndex = target.Model.CurrentSwipeIndex;
+        target.Content = target.Model.Content;
+    }
+
+    [RelayCommand(CanExecute = nameof(IsIdle))]
+    private async Task AttachImagesAsync()
+    {
+        IEnumerable<FileResult?> picked;
+        try
+        {
+            picked = await FilePicker.Default.PickMultipleAsync(ImagePickOptions);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Image picking failed.");
+            ErrorMessage = "打开文件选择器失败。";
+            return;
+        }
+        foreach (var file in picked)
+        {
+            if (file is null) continue;
+            var path = file.FullPath;
+            if (string.IsNullOrEmpty(path) || !AttachmentService.IsSupportedImage(path)) continue;
+            if (new FileInfo(path).Length > MaxImageSize)
+            {
+                ErrorMessage = "单张图片不能超过 10 MB。";
+                continue;
+            }
+            if (!PendingImages.Contains(path, StringComparer.OrdinalIgnoreCase))
+                PendingImages.Add(path);
+        }
+        PendingImagesChanged();
+    }
+
+    [RelayCommand]
+    private void RemovePendingImage(string? path)
+    {
+        if (path is not null) PendingImages.Remove(path);
+        PendingImagesChanged();
+    }
+
+    private void PendingImagesChanged()
+    {
+        OnPropertyChanged(nameof(HasPendingImages));
+        SendCommand.NotifyCanExecuteChanged();
+    }
+
+    public Task CopyMessageAsync(ChatMessageViewModel target) => Clipboard.SetTextAsync(target.Content);
+
+    public async Task EditMessageAsync(ChatMessageViewModel target, string newContent)
+    {
+        if (string.IsNullOrWhiteSpace(newContent) || newContent == target.Model.Content) return;
+        target.Model.Content = newContent;
+        await chatService.UpdateMessageAsync(target.Model);
+        target.Content = target.Model.Content;
+        if (target.IsAssistant) await RefreshMessageMetaAsync(target);
+    }
+
+    public async Task DeleteMessageAsync(ChatMessageViewModel target)
+    {
+        if (IsGenerating) return;
+        await chatService.DeleteMessageAsync(target.Model.Id);
+        Messages.Remove(target);
+        _ = RefreshSuggestionsAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanStop))]
@@ -182,11 +307,34 @@ public partial class ChatViewModel(
         ClearSuggestions();
         SelectedSession = Sessions.FirstOrDefault(x => x.Id == target.Id) ?? SelectedSession;
         Messages.Clear();
+        var attachments = await attachmentRepository.GetBySessionAsync(target.Id);
+        var byMessage = attachments.GroupBy(x => x.ChatMessageId)
+            .ToDictionary(group => group.Key, group => group.ToList());
         foreach (var message in await chatService.GetMessagesAsync(target.Id))
-            Messages.Add(new ChatMessageViewModel(message, message.Role == ChatRole.User ? "你" : "角色"));
+        {
+            var viewModel = new ChatMessageViewModel(message, message.Role == ChatRole.User ? "你" : "角色");
+            if (byMessage.TryGetValue(message.Id, out var list))
+                foreach (var attachment in list) viewModel.Attachments.Add(attachment);
+            if (viewModel.IsAssistant)
+                viewModel.SwipeCount = await chatService.GetSwipeCountAsync(message);
+            AddMessage(viewModel);
+        }
         MessagesChanged?.Invoke();
         if (Messages.LastOrDefault()?.IsUser == false)
             _ = RefreshSuggestionsAsync();
+    }
+
+    private void AddMessage(ChatMessageViewModel viewModel)
+    {
+        viewModel.LongPressRequested += message => MessageActionRequested?.Invoke(message);
+        Messages.Add(viewModel);
+    }
+
+    private async Task RefreshMessageMetaAsync(ChatMessageViewModel viewModel)
+    {
+        if (!viewModel.IsAssistant) return;
+        viewModel.SwipeCount = await chatService.GetSwipeCountAsync(viewModel.Model);
+        viewModel.SwipeIndex = viewModel.Model.CurrentSwipeIndex;
     }
 
     private async Task ReloadSessionsAsync(long selectedId)
@@ -253,6 +401,27 @@ public partial class ChatViewModel(
 
     public void UseSuggestion(string suggestion) => InputText = suggestion;
 
+    private async Task RefreshConfigurationStatusAsync(ChatMessageViewModel? assistant)
+    {
+        if (assistant is null) return;
+        try
+        {
+            var status = await characterStatusService.UpdateAsync(session!, assistant.Model.SpeakerCharacterId
+                                                                      ?? session!.CharacterId ?? 0, assistant.Model.Id);
+            assistant.StatusSummary = status is null ? null : FormatStatus(status);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Character status update failed.");
+        }
+    }
+
+    private static string FormatStatus(CharacterStatusSnapshot status)
+    {
+        var attributes = string.Join(" · ", status.Attributes.Take(4).Select(x => $"{x.Name} {x.Value}"));
+        return string.IsNullOrWhiteSpace(attributes) ? status.Summary : $"{status.Summary}  |  {attributes}";
+    }
+
     private void BeginGeneration(CancellationTokenSource cancellation)
     {
         IsGenerating = true;
@@ -271,7 +440,8 @@ public partial class ChatViewModel(
         NewChatCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanSend() => !IsGenerating && IsProviderConfigured && !string.IsNullOrWhiteSpace(InputText);
+    private bool CanSend() => !IsGenerating && IsProviderConfigured &&
+                              (!string.IsNullOrWhiteSpace(InputText) || PendingImages.Count > 0);
     private bool CanStop() => IsGenerating;
     private bool CanCreateChat() => !IsGenerating;
 
@@ -282,6 +452,7 @@ public partial class ChatViewModel(
         SendCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
         NewChatCommand.NotifyCanExecuteChanged();
+        AttachImagesCommand.NotifyCanExecuteChanged();
     }
     partial void OnIsProviderConfiguredChanged(bool value) => SendCommand.NotifyCanExecuteChanged();
 }

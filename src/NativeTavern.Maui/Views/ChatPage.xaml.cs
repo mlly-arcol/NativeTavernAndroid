@@ -15,6 +15,7 @@ public partial class ChatPage : ContentPage
         this.services = services;
         BindingContext = viewModel;
         viewModel.MessagesChanged += ScrollToLatest;
+        viewModel.MessageActionRequested += OnMessageActionRequested;
     }
 
     protected override async void OnAppearing()
@@ -58,5 +59,54 @@ public partial class ChatPage : ContentPage
     {
         if (viewModel.SendCommand.CanExecute(null))
             await viewModel.SendCommand.ExecuteAsync(null);
+    }
+
+    private void OnRegenerateClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { BindingContext: ChatMessageViewModel message })
+            viewModel.RegenerateCommand.Execute(message);
+    }
+
+    private async void OnSwipePrevClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { BindingContext: ChatMessageViewModel message })
+            await viewModel.SwipePrevCommand.ExecuteAsync(message);
+    }
+
+    private async void OnSwipeNextClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { BindingContext: ChatMessageViewModel message })
+            await viewModel.SwipeNextCommand.ExecuteAsync(message);
+    }
+
+    private void OnRemovePendingImageClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { BindingContext: string path })
+            viewModel.RemovePendingImageCommand.Execute(path);
+    }
+
+    // Long-pressing a bubble opens the message action sheet.
+    private async void OnMessageActionRequested(ChatMessageViewModel message)
+    {
+        string[] actions = message.IsAssistant ? ["复制", "编辑", "重新生成", "删除"] : ["复制", "编辑", "删除"];
+        var action = await DisplayActionSheetAsync("消息操作", "取消", null, actions);
+        switch (action)
+        {
+            case "复制":
+                await viewModel.CopyMessageAsync(message);
+                break;
+            case "编辑":
+                var edited = await DisplayPromptAsync("编辑消息", "修改消息内容（暂不支持换行）",
+                    initialValue: message.Content);
+                if (edited is not null) await viewModel.EditMessageAsync(message, edited);
+                break;
+            case "重新生成":
+                viewModel.RegenerateCommand.Execute(message);
+                break;
+            case "删除":
+                var confirmed = await DisplayAlertAsync("删除消息", "确定删除这条消息吗？", "删除", "取消");
+                if (confirmed) await viewModel.DeleteMessageAsync(message);
+                break;
+        }
     }
 }

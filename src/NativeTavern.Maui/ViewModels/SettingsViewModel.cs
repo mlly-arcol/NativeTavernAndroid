@@ -22,6 +22,9 @@ public partial class SettingsViewModel(
     [ObservableProperty] private double temperature = 0.8;
     [ObservableProperty] private double topP = 1.0;
     [ObservableProperty] private int maxTokens = 1024;
+    [ObservableProperty] private bool includeCharacterContext;
+    [ObservableProperty] private bool includeKnowledgeContext;
+    [ObservableProperty] private bool includeImageContext;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? statusMessage;
 
@@ -38,6 +41,9 @@ public partial class SettingsViewModel(
         Temperature = resolved.Settings.Temperature;
         TopP = resolved.Settings.TopP;
         MaxTokens = resolved.Settings.MaxTokens;
+        IncludeCharacterContext = resolved.Settings.IncludeCharacterContext;
+        IncludeKnowledgeContext = resolved.Settings.IncludeKnowledgeContext;
+        IncludeImageContext = resolved.Settings.IncludeImageContext;
     }
 
     [RelayCommand]
@@ -89,7 +95,10 @@ public partial class SettingsViewModel(
             Model = Model.Trim(),
             Temperature = Temperature,
             TopP = TopP,
-            MaxTokens = MaxTokens
+            MaxTokens = MaxTokens,
+            IncludeCharacterContext = IncludeCharacterContext,
+            IncludeKnowledgeContext = IncludeKnowledgeContext,
+            IncludeImageContext = IncludeImageContext
         };
         if (!ProviderSettings.IsValidBaseUrl(settings.BaseUrl))
         { StatusMessage = "请输入有效的 Base URL。"; return false; }

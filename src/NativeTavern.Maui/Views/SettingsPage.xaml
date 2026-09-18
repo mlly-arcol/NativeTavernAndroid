@@ -37,6 +37,21 @@
             <Label Text="最大生成长度" FontSize="13" />
             <Entry Keyboard="Numeric" Text="{Binding MaxTokens}" />
 
+            <Label Text="请求选项" FontAttributes="Bold" FontSize="18" Margin="0,8,0,0" />
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Text="发送角色卡与开场白上下文" FontSize="14" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IncludeCharacterContext}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Text="发送命中的世界书片段" FontSize="14" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IncludeKnowledgeContext}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Text="发送附带图片（需要视觉模型）" FontSize="14" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IncludeImageContext}" />
+            </Grid>
+
             <HorizontalStackLayout Spacing="10" Margin="0,8,0,0">
                 <Button Text="测试连接" Command="{Binding TestConnectionCommand}" />
                 <Button Text="保存" Command="{Binding SaveCommand}" />

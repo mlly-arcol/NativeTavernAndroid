@@ -2,11 +2,23 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:NativeTavern.Maui.ViewModels"
              xmlns:views="clr-namespace:NativeTavern.Maui.Views"
+             xmlns:models="clr-namespace:NativeTavern.Models"
              x:Class="NativeTavern.Maui.Views.ChatPage"
              x:DataType="vm:ChatViewModel"
              Title="NativeTavern">
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto"
+    <ContentPage.Resources>
+        <Style x:Key="MiniButton" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource EntryBackground}" />
+            <Setter Property="TextColor" Value="{StaticResource PrimaryText}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="MinimumHeightRequest" Value="30" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto"
           Padding="10,8"
           RowSpacing="8">
 
@@ -32,6 +44,9 @@
                             BackgroundColor="{StaticResource CardBackground}"
                             Padding="12,8"
                             Margin="0,2">
+                        <Border.Behaviors>
+                            <views:LongPressBehavior Command="{Binding LongPressCommand}" />
+                        </Border.Behaviors>
                         <VerticalStackLayout Spacing="4">
                             <HorizontalStackLayout Spacing="8">
                                 <Label Text="{Binding RoleLabel}"
@@ -43,11 +58,42 @@
                                        IsVisible="{Binding IsStreaming}"
                                        TextColor="{StaticResource MutedText}" />
                             </HorizontalStackLayout>
+                            <ScrollView Orientation="Horizontal"
+                                        IsVisible="{Binding HasAttachments}">
+                                <HorizontalStackLayout Spacing="6"
+                                                       BindableLayout.ItemsSource="{Binding Attachments}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="models:ChatAttachment">
+                                            <Border StrokeShape="RoundRectangle 8"
+                                                    BackgroundColor="{StaticResource EntryBackground}"
+                                                    HeightRequest="150"
+                                                    WidthRequest="150">
+                                                <Image Source="{Binding FilePath}" Aspect="AspectFill" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </HorizontalStackLayout>
+                            </ScrollView>
                             <Label Text="{Binding Content}"
                                    LineBreakMode="WordWrap"
                                    IsVisible="{Binding IsUser}" />
                             <views:MarkdownContentView MarkdownText="{Binding Content}"
                                                        IsVisible="{Binding IsAssistant}" />
+                            <HorizontalStackLayout Spacing="6" IsVisible="{Binding IsAssistant}">
+                                <Button Text="↻" Style="{StaticResource MiniButton}"
+                                        Clicked="OnRegenerateClicked" />
+                                <Button Text="‹" Style="{StaticResource MiniButton}"
+                                        IsVisible="{Binding HasSwipeNav}"
+                                        Clicked="OnSwipePrevClicked" />
+                                <Label Text="{Binding SwipePosition}"
+                                       FontSize="12"
+                                       VerticalOptions="Center"
+                                       TextColor="{StaticResource MutedText}"
+                                       IsVisible="{Binding HasSwipeNav}" />
+                                <Button Text="›" Style="{StaticResource MiniButton}"
+                                        IsVisible="{Binding HasSwipeNav}"
+                                        Clicked="OnSwipeNextClicked" />
+                            </HorizontalStackLayout>
                             <Label Text="{Binding StatusSummary}"
                                    FontSize="12"
                                    LineBreakMode="WordWrap"
@@ -59,34 +105,73 @@
             </CollectionView.ItemTemplate>
         </CollectionView>
 
-        <!-- Reply suggestions -->
-        <ScrollView Grid.Row="2"
+        <!-- Error + reply suggestions -->
+        <VerticalStackLayout Grid.Row="2" Spacing="6">
+            <Label Text="{Binding ErrorMessage}"
+                   FontSize="13"
+                   TextColor="#FF8A8A"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNull}}" />
+            <ScrollView Orientation="Horizontal"
+                        IsVisible="{Binding HasSuggestions}">
+                <HorizontalStackLayout Spacing="6"
+                                       BindableLayout.ItemsSource="{Binding ReplySuggestions}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Button Text="{Binding}"
+                                    Clicked="OnSuggestionClicked" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+        </VerticalStackLayout>
+
+        <!-- Pending images -->
+        <ScrollView Grid.Row="3"
                     Orientation="Horizontal"
-                    IsVisible="{Binding HasSuggestions}">
+                    IsVisible="{Binding HasPendingImages}">
             <HorizontalStackLayout Spacing="6"
-                                   BindableLayout.ItemsSource="{Binding ReplySuggestions}">
+                                   BindableLayout.ItemsSource="{Binding PendingImages}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
-                        <Button Text="{Binding}"
-                                Clicked="OnSuggestionClicked" />
+                        <Grid WidthRequest="64" HeightRequest="64">
+                            <Border StrokeShape="RoundRectangle 8"
+                                    BackgroundColor="{StaticResource EntryBackground}">
+                                <Image Source="{Binding}" Aspect="AspectFill" />
+                            </Border>
+                            <Button Text="×"
+                                    WidthRequest="22"
+                                    HeightRequest="22"
+                                    CornerRadius="11"
+                                    Padding="0"
+                                    FontSize="12"
+                                    BackgroundColor="#CC000000"
+                                    HorizontalOptions="End"
+                                    VerticalOptions="Start"
+                                    Clicked="OnRemovePendingImageClicked" />
+                        </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
             </HorizontalStackLayout>
         </ScrollView>
 
         <!-- Input -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="6">
-            <Editor Grid.Column="0"
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+            <Button Grid.Column="0"
+                    Text="📎"
+                    Style="{StaticResource MiniButton}"
+                    VerticalOptions="End"
+                    Command="{Binding AttachImagesCommand}" />
+            <Editor Grid.Column="1"
                     x:Name="InputEditor"
                     Text="{Binding InputText}"
                     AutoSize="TextChanges"
                     Placeholder="输入消息…"
                     Completed="OnInputCompleted" />
-            <Button Grid.Column="1"
+            <Button Grid.Column="2"
                     Text="发送"
                     Command="{Binding SendCommand}"
                     IsVisible="{Binding IsIdle}" />
-            <Button Grid.Column="1"
+            <Button Grid.Column="2"
                     Text="停止"
                     Command="{Binding StopCommand}"
                     IsVisible="{Binding IsGenerating}" />
